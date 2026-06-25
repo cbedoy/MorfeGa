@@ -97,6 +97,7 @@ void Shader::drawModel(const Model &model) const {
     GLint position = glGetAttribLocation(program_, "inPosition");
     GLint normal = glGetAttribLocation(program_, "inNormal");
     GLint uv = glGetAttribLocation(program_, "inUV");
+    GLint color = glGetAttribLocation(program_, "inColor");
 
     if (position >= 0) {
         glVertexAttribPointer(position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), model.getVertexData());
@@ -112,6 +113,11 @@ void Shader::drawModel(const Model &model) const {
                               ((uint8_t *)model.getVertexData()) + 24);
         glEnableVertexAttribArray(uv);
     }
+    if (color >= 0) {
+        glVertexAttribPointer(color, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                              ((uint8_t *)model.getVertexData()) + 32);
+        glEnableVertexAttribArray(color);
+    }
 
     glActiveTexture(GL_TEXTURE0);
     GLint texUniform = glGetUniformLocation(program_, "uTexture");
@@ -120,6 +126,7 @@ void Shader::drawModel(const Model &model) const {
 
     glDrawElements(GL_TRIANGLES, model.getIndexCount(), GL_UNSIGNED_SHORT, model.getIndexData());
 
+    if (color >= 0) glDisableVertexAttribArray(color);
     if (uv >= 0) glDisableVertexAttribArray(uv);
     if (normal >= 0) glDisableVertexAttribArray(normal);
     if (position >= 0) glDisableVertexAttribArray(position);

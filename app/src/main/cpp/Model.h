@@ -9,10 +9,13 @@ struct Vertex {
     float px, py, pz;
     float nx, ny, nz;
     float u, v;
+    float r, g, b, a;
 
     Vertex() = default;
     Vertex(float px, float py, float pz, float nx, float ny, float nz, float u, float v)
-        : px(px), py(py), pz(pz), nx(nx), ny(ny), nz(nz), u(u), v(v) {}
+        : px(px), py(py), pz(pz), nx(nx), ny(ny), nz(nz), u(u), v(v), r(1), g(1), b(1), a(1) {}
+    Vertex(float px, float py, float pz, float nx, float ny, float nz, float u, float v, float r, float g, float b, float a = 1)
+        : px(px), py(py), pz(pz), nx(nx), ny(ny), nz(nz), u(u), v(v), r(r), g(g), b(b), a(a) {}
 };
 
 using Index = uint16_t;

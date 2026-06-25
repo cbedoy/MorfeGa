@@ -21,18 +21,18 @@ inline bool inBounds(int x, int y, int z) {
 
 static const float kBlockColors[][3] = {
     {0, 0, 0},        // AIR
-    {0.2f, 0.7f, 0.1f}, // GRASS
-    {0.5f, 0.35f, 0.15f}, // DIRT
-    {0.5f, 0.5f, 0.5f}, // STONE
-    {0.4f, 0.2f, 0.1f}, // WOOD
-    {0.76f, 0.7f, 0.5f}, // SAND
-    {0.2f, 0.4f, 0.8f}, // WATER
-    {0.1f, 0.4f, 0.1f}, // LEAVES
-    {0.6f, 0.2f, 0.1f}, // BRICK
-    {0.9f, 0.9f, 0.9f}, // SNOW
-    {0.4f, 0.4f, 0.4f}, // COBBLESTONE
-    {0.7f, 0.5f, 0.3f}, // PLANKS
-    {0.5f, 0.5f, 0.45f}, // GRAVEL
+    {0.35f, 0.85f, 0.15f}, // GRASS (top) — saturated green
+    {0.6f, 0.4f, 0.2f}, // DIRT — warm brown
+    {0.6f, 0.6f, 0.6f}, // STONE — medium gray
+    {0.5f, 0.25f, 0.1f}, // WOOD — dark brown
+    {0.85f, 0.8f, 0.55f}, // SAND — warm beige
+    {0.2f, 0.5f, 0.9f}, // WATER — deep blue
+    {0.15f, 0.55f, 0.15f}, // LEAVES — forest green
+    {0.7f, 0.25f, 0.15f}, // BRICK — terracotta red
+    {0.95f, 0.95f, 0.95f}, // SNOW — pure white
+    {0.5f, 0.45f, 0.4f}, // COBBLESTONE — dark gray
+    {0.8f, 0.6f, 0.35f}, // PLANKS — oak wood
+    {0.55f, 0.5f, 0.45f}, // GRAVEL — speckled gray
 };
 
 Chunk::Chunk(int chunkX, int chunkZ)
@@ -104,6 +104,8 @@ void Chunk::buildMesh() {
                 if (type == BlockType::AIR) continue;
 
                 bool transparent = isTransparent(type);
+                int typeIdx = static_cast<int>(type);
+                const float *col = kBlockColors[typeIdx];
 
                 neighbors[0] = getBlock(x, y, z + 1);
                 neighbors[1] = getBlock(x + 1, y, z);
@@ -129,13 +131,15 @@ void Chunk::buildMesh() {
                     Index base = verts.size();
 
                     for (int v = 0; v < 4; v++) {
+                        float alpha = transparent ? (type == BlockType::WATER ? 0.5f : 0.7f) : 1.0f;
                         verts.emplace_back(
                             worldXBase + x + f.verts[v][0],
                             y + f.verts[v][1],
                             worldZBase + z + f.verts[v][2],
                             f.normal[0], f.normal[1], f.normal[2],
                             (v == 1 || v == 2) ? 1.0f : 0.0f,
-                            (v == 2 || v == 3) ? 1.0f : 0.0f
+                            (v == 2 || v == 3) ? 1.0f : 0.0f,
+                            col[0], col[1], col[2], alpha
                         );
                     }
                     indices.push_back(base);

@@ -30,6 +30,7 @@ static const char *vertex3D = R"glsl(#version 300 es
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inUV;
+layout(location = 3) in vec4 inColor;
 
 uniform mat4 uViewProj;
 uniform mat4 uModel;
@@ -37,12 +38,14 @@ uniform mat4 uModel;
 out vec2 fragUV;
 out vec3 fragNormal;
 out vec3 fragWorldPos;
+out vec4 fragColor;
 
 void main() {
     vec4 worldPos = uModel * vec4(inPosition, 1.0);
     fragWorldPos = worldPos.xyz;
     fragNormal = mat3(uModel) * inNormal;
     fragUV = inUV;
+    fragColor = inColor;
     gl_Position = uViewProj * worldPos;
 }
 )glsl";
@@ -53,23 +56,18 @@ precision highp float;
 in vec2 fragUV;
 in vec3 fragNormal;
 in vec3 fragWorldPos;
+in vec4 fragColor;
 
-uniform sampler2D uTexture;
 uniform vec3 uLightDir;
-uniform vec3 uCameraPos;
 
 out vec4 outColor;
 
 void main() {
-    vec4 texColor = texture(uTexture, fragUV);
-    if (texColor.a < 0.1) discard;
-
+    if (fragColor.a < 0.1) discard;
     vec3 normal = normalize(fragNormal);
-    float diff = max(dot(normal, uLightDir), 0.15);
-    float ambient = 0.5;
-    float lighting = ambient + diff * 0.5;
-
-    outColor = vec4(texColor.rgb * lighting, texColor.a);
+    float diff = max(dot(normal, uLightDir), 0.0);
+    float lighting = 0.4 + diff * 0.6;
+    outColor = vec4(fragColor.rgb * lighting, fragColor.a);
 }
 )glsl";
 
@@ -183,9 +181,10 @@ void Renderer::initRenderer() {
     std::vector<std::pair<std::string, GLuint>> attribLocations = {
         {"inPosition", 0},
         {"inNormal", 1},
-        {"inUV", 2}
+        {"inUV", 2},
+        {"inColor", 3}
     };
-    std::vector<std::string> uniformNames = {"uViewProj", "uModel", "uTexture", "uLightDir", "uCameraPos"};
+    std::vector<std::string> uniformNames = {"uViewProj", "uModel", "uLightDir"};
 
     shader_.reset(Shader::loadShader(vertex3D, fragment3D, attribLocations, uniformNames));
     assert(shader_);
@@ -198,6 +197,8 @@ void Renderer::initRenderer() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     camera_ = std::make_unique<Camera>();
     player_ = std::make_unique<Player>(*camera_);
@@ -244,9 +245,6 @@ void Renderer::render() {
     float ldLen = lightDirNormalized.length();
     if (ldLen > 0) lightDirNormalized = lightDirNormalized / ldLen;
     shader_->setLightDir(lightDirNormalized.data());
-
-    Vector3 camPos = camera_->getPosition();
-    shader_->setCameraPos(camPos.data());
 
     chunkManager_->update();
 
