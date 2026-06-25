@@ -73,6 +73,17 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
     return std::shared_ptr<TextureAsset>(new TextureAsset(textureId));
 }
 
+std::shared_ptr<TextureAsset> TextureAsset::createWhiteTexture() {
+    GLuint texId;
+    glGenTextures(1, &texId);
+    glBindTexture(GL_TEXTURE_2D, texId);
+    unsigned char white[] = {255, 255, 255, 255};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    return std::shared_ptr<TextureAsset>(new TextureAsset(texId));
+}
+
 TextureAsset::~TextureAsset() {
     // return texture resources
     glDeleteTextures(1, &textureID_);
