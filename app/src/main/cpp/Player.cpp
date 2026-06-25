@@ -85,16 +85,9 @@ void Player::update(float deltaTime, ChunkManager &chunkManager) {
     constexpr float gravity = -20.0f;
     constexpr float friction = 0.8f;
 
-    Vector3 flatForward = camera_.getForward();
-    flatForward.y = 0;
-    if (flatForward.length() > 0) flatForward = flatForward.normalized();
-    Vector3 flatRight = camera_.getRight();
-    flatRight.y = 0;
-    if (flatRight.length() > 0) flatRight = flatRight.normalized();
-
-    Vector3 moveVec = flatForward * inputMove_.z + flatRight * inputMove_.x;
-    if (moveVec.length() > 0) {
-        moveVec = moveVec.normalized() * speed_;
+    Vector3 moveVec;
+    if (inputMove_.length() > 0.1f) {
+        moveVec = inputMove_.normalized() * speed_;
     } else {
         moveVec.x = velocity_.x * friction;
         moveVec.z = velocity_.z * friction;

@@ -99,8 +99,8 @@ Renderer::Renderer(android_app *pApp)
     , context_(EGL_NO_CONTEXT)
     , width_(0)
     , height_(0)
-    , isPointerDown_(false)
-    , hasMoved_(false) {
+    , joystickKnobX_(0)
+    , joystickKnobY_(0) {
 
     lightDir_[0] = 0.5f; lightDir_[1] = -0.8f; lightDir_[2] = 0.3f;
     float len = std::sqrt(lightDir_[0]*lightDir_[0] + lightDir_[1]*lightDir_[1] + lightDir_[2]*lightDir_[2]);
@@ -257,6 +257,7 @@ void Renderer::render() {
 
     renderSelector();
     renderCrosshair();
+    renderJoystick();
 
     auto swapResult = eglSwapBuffers(display_, surface_);
     assert(swapResult == EGL_TRUE);
@@ -377,7 +378,7 @@ void Renderer::handleInput() {
     auto *inputBuffer = android_app_swap_input_buffers(app_);
     if (!inputBuffer) return;
 
-    bool hasTap = false;
+    bool tapOnRight = false;
 
     for (auto i = 0; i < inputBuffer->motionEventsCount; i++) {
         auto &motionEvent = inputBuffer->motionEvents[i];
@@ -388,35 +389,83 @@ void Renderer::handleInput() {
         auto x = GameActivityPointerAxes_getX(&pointer);
         auto y = GameActivityPointerAxes_getY(&pointer);
 
+        float halfWidth = width_ / 2.0f;
+        bool isLeft = x < halfWidth;
+
         switch (action & AMOTION_EVENT_ACTION_MASK) {
             case AMOTION_EVENT_ACTION_DOWN:
-            case AMOTION_EVENT_ACTION_POINTER_DOWN:
-                isPointerDown_ = true;
-                pointerStartX_ = x;
-                pointerStartY_ = y;
-                hasMoved_ = false;
+            case AMOTION_EVENT_ACTION_POINTER_DOWN: {
+                int slot = isLeft ? 0 : 1;
+                pointers_[slot].active = true;
+                pointers_[slot].startX = x;
+                pointers_[slot].startY = y;
+                pointers_[slot].currentX = x;
+                pointers_[slot].currentY = y;
+                pointers_[slot].hasMoved = false;
+                if (isLeft) {
+                    joystickBaseX_ = x;
+                    joystickBaseY_ = y;
+                    joystickKnobX_ = 0;
+                    joystickKnobY_ = 0;
+                }
                 break;
+            }
 
-            case AMOTION_EVENT_ACTION_MOVE:
-                if (isPointerDown_) {
-                    float dx = x - pointerStartX_;
-                    float dy = y - pointerStartY_;
-                    if (std::abs(dx) > 2 || std::abs(dy) > 2) {
-                        hasMoved_ = true;
-                        camera_->rotate(dx, dy);
-                        pointerStartX_ = x;
-                        pointerStartY_ = y;
+            case AMOTION_EVENT_ACTION_MOVE: {
+                for (int p = 0; p < motionEvent.pointerCount; p++) {
+                    auto &ptr = motionEvent.pointers[p];
+                    float px = GameActivityPointerAxes_getX(&ptr);
+                    float py = GameActivityPointerAxes_getY(&ptr);
+
+                    bool pIsLeft = px < halfWidth;
+                    int slot = pIsLeft ? 0 : 1;
+                    if (!pointers_[slot].active) continue;
+
+                    float dx = px - pointers_[slot].startX;
+                    float dy = py - pointers_[slot].startY;
+
+                    if (slot == 0) {
+                        // Joystick
+                        float knobDx = px - joystickBaseX_;
+                        float knobDy = py - joystickBaseY_;
+                        float dist = std::sqrt(knobDx * knobDx + knobDy * knobDy);
+                        if (dist > joystickRadius_) {
+                            knobDx = knobDx / dist * joystickRadius_;
+                            knobDy = knobDy / dist * joystickRadius_;
+                        }
+                        joystickKnobX_ = knobDx / joystickRadius_;
+                        joystickKnobY_ = knobDy / joystickRadius_;
+                        pointers_[slot].currentX = joystickBaseX_ + knobDx;
+                        pointers_[slot].currentY = joystickBaseY_ + knobDy;
+                        if (dist > 10.0f) pointers_[slot].hasMoved = true;
+                    } else {
+                        // Camera drag
+                        if (std::abs(dx) > 2 || std::abs(dy) > 2) {
+                            pointers_[slot].hasMoved = true;
+                            camera_->rotate(dx, dy);
+                            pointers_[slot].startX = px;
+                            pointers_[slot].startY = py;
+                            pointers_[slot].currentX = px;
+                            pointers_[slot].currentY = py;
+                        }
                     }
                 }
                 break;
+            }
 
             case AMOTION_EVENT_ACTION_UP:
-            case AMOTION_EVENT_ACTION_POINTER_UP:
-                if (isPointerDown_ && !hasMoved_) {
-                    hasTap = true;
+            case AMOTION_EVENT_ACTION_POINTER_UP: {
+                int slot = isLeft ? 0 : 1;
+                if (slot == 1 && pointers_[slot].active && !pointers_[slot].hasMoved) {
+                    tapOnRight = true;
                 }
-                isPointerDown_ = false;
+                if (slot == 0) {
+                    joystickKnobX_ = 0;
+                    joystickKnobY_ = 0;
+                }
+                pointers_[slot].active = false;
                 break;
+            }
 
             default:
                 break;
@@ -434,15 +483,110 @@ void Renderer::handleInput() {
     }
     android_app_clear_key_events(inputBuffer);
 
-    if (hasTap) {
+    if (tapOnRight) {
         handleBreakBlock();
     }
 
-    Vector3 forward = camera_->getForward();
-    Vector3 moveDir = forward * Vector3(1, 0, 1);
-    if (isPointerDown_ && hasMoved_) {
-        player_->move(moveDir.normalized() * Vector3(1, 0, 1));
+    // Joystick → player movement
+    Vector3 flatForward = camera_->getForward();
+    flatForward.y = 0;
+    if (flatForward.length() > 0) flatForward = flatForward.normalized();
+    Vector3 flatRight = camera_->getRight();
+    flatRight.y = 0;
+    if (flatRight.length() > 0) flatRight = flatRight.normalized();
+    Vector3 moveDir = flatForward * (-joystickKnobY_) + flatRight * joystickKnobX_;
+    if (moveDir.length() > 0.1f) {
+        moveDir = moveDir.normalized();
+        player_->move(moveDir);
+    } else {
+        player_->move(Vector3(0, 0, 0));
     }
+}
+
+void Renderer::renderJoystick() {
+    if (!pointers_[0].active) return;
+
+    float px = joystickBaseX_;
+    float py = joystickBaseY_;
+
+    float nx = 2.0f * px / width_ - 1.0f;
+    float ny = 1.0f - 2.0f * py / height_;
+    float r = 2.0f * joystickRadius_ / height_;
+
+    float knobNx = nx + 2.0f * joystickKnobX_ * joystickRadius_ / height_;
+    float knobNy = ny - 2.0f * joystickKnobY_ * joystickRadius_ / height_;
+
+    if (joystickProgram_ == 0) {
+        const char *vSrc = R"(#version 300 es
+layout(location = 0) in vec2 p;
+void main() { gl_Position = vec4(p, 0.0, 1.0); })";
+        const char *fSrc = R"(#version 300 es
+precision mediump float;
+uniform vec4 uColor;
+out vec4 c;
+void main() { c = uColor; })";
+        GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vs, 1, &vSrc, nullptr);
+        glCompileShader(vs);
+        GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fs, 1, &fSrc, nullptr);
+        glCompileShader(fs);
+        GLuint program = glCreateProgram();
+        glAttachShader(program, vs);
+        glAttachShader(program, fs);
+        glLinkProgram(program);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        joystickProgram_ = program;
+    }
+
+    glUseProgram(joystickProgram_);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Base ring (hexagon approximation)
+    constexpr int kSegments = 20;
+    float baseVerts[kSegments * 2 + 2];
+    for (int i = 0; i <= kSegments; i++) {
+        float angle = float(i) / float(kSegments) * 6.283185f;
+        baseVerts[i * 2] = nx + r * std::cos(angle);
+        baseVerts[i * 2 + 1] = ny + r * std::sin(angle);
+    }
+
+    GLint colorLoc = glGetUniformLocation(joystickProgram_, "uColor");
+    GLuint vao, vbo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    // Draw base ring
+    glBufferData(GL_ARRAY_BUFFER, sizeof(baseVerts), baseVerts, GL_STREAM_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(0);
+    glUniform4f(colorLoc, 1.0f, 1.0f, 1.0f, 0.2f);
+    glDrawArrays(GL_LINE_STRIP, 0, kSegments + 1);
+
+    // Draw knob
+    float knobR = r * 0.35f;
+    float knobVerts[kSegments * 2 + 2];
+    for (int i = 0; i <= kSegments; i++) {
+        float angle = float(i) / float(kSegments) * 6.283185f;
+        knobVerts[i * 2] = knobNx + knobR * std::cos(angle);
+        knobVerts[i * 2 + 1] = knobNy + knobR * std::sin(angle);
+    }
+    glBufferData(GL_ARRAY_BUFFER, sizeof(knobVerts), knobVerts, GL_STREAM_DRAW);
+    glUniform4f(colorLoc, 1.0f, 1.0f, 1.0f, 0.6f);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, kSegments + 1);
+
+    glBindVertexArray(0);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &vbo);
+
+    glEnable(GL_DEPTH_TEST);
+    shader_->activate();
 }
 
 void Renderer::handleBreakBlock() {

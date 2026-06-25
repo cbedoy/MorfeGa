@@ -30,6 +30,7 @@ private:
     void renderChunks();
     void renderSelector();
     void renderCrosshair();
+    void renderJoystick();
 
     void handleBreakBlock();
     void handlePlaceBlock();
@@ -51,10 +52,22 @@ private:
     RaycastHit hit_;
     float lightDir_[3];
     GLuint crosshairProgram_ = 0;
+    GLuint joystickProgram_ = 0;
 
-    bool isPointerDown_;
-    float pointerStartX_, pointerStartY_;
-    bool hasMoved_;
+    // Joystick state — tracks up to 2 pointers by pointerId
+    struct PointerState {
+        bool active = false;
+        float startX = 0, startY = 0;
+        float currentX = 0, currentY = 0;
+        bool hasMoved = false;
+    };
+    PointerState pointers_[2]; // [0]=joystick, [1]=camera drag (assigned by side)
+
+    float joystickKnobX_ = 0;
+    float joystickKnobY_ = 0;
+    float joystickBaseX_ = 0;
+    float joystickBaseY_ = 0;
+    float joystickRadius_ = 80.0f;
 };
 
 #endif
