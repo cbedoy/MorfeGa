@@ -1,17 +1,17 @@
-# Reglas para el Agente
+# Agent Rules
 
 ## Commits
-- Cada cambio realizado en el código debe ser commiteado antes de pasar a la siguiente tarea.
-- Los mensajes de commit deben ser descriptivos y en español.
-- No dejar cambios sin commitear al finalizar una sesión de trabajo.
+- Every code change must be committed before moving to the next task.
+- Commit messages must be descriptive and in English.
+- Do not leave uncommitted changes at the end of a work session.
 
-## Estilo de código
-- Seguir las convenciones del proyecto existente.
-- No agregar comentarios a menos que sea estrictamente necesario.
+## Code Style
+- Follow existing project conventions.
+- Do not add comments unless strictly necessary.
 
-## Flujo de trabajo
-1. Analizar el requerimiento.
-2. Implementar los cambios.
-3. Verificar que el código compile y pase lint.
-4. Hacer commit con mensaje descriptivo.
-5. Pasar a la siguiente tarea.
+## Workflow
+1. Analyze the requirement.
+2. Implement the changes.
+3. Verify the code compiles and passes lint.
+4. Commit with a descriptive message.
+5. Move to the next task.

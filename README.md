@@ -1,28 +1,28 @@
 # MorfeGa
 
-MorfeGa es un proyecto de Android.
+MorfeGa is an Android project.
 
-## Requisitos
+## Requirements
 
 - Android Studio
 - JDK 17+
 - Android SDK
 
-## Cómo empezar
+## Getting Started
 
-1. Clonar el repositorio:
+1. Clone the repository:
    ```bash
-   git clone https://github.com/usuario/MorfeGa.git
+   git clone https://github.com/user/MorfeGa.git
    ```
-2. Abrir el proyecto en Android Studio.
-3. Sincronizar dependencias con Gradle.
-4. Ejecutar la aplicación en un emulador o dispositivo físico.
+2. Open the project in Android Studio.
+3. Sync Gradle dependencies.
+4. Run the app on an emulator or physical device.
 
-## Estructura del proyecto
+## Project Structure
 
-- `app/` - Módulo principal de la aplicación.
-- `gradle/` - Scripts de configuración de Gradle.
+- `app/` - Main application module.
+- `gradle/` - Gradle configuration scripts.
 
-## Licencia
+## License
 
-Todos los derechos reservados.
+All rights reserved.
